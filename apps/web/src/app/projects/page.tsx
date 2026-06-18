@@ -278,6 +278,7 @@ export default function ProjectsPage() {
                   >
                     <option value="claude">Anthropic Claude</option>
                     <option value="openai">OpenAI GPT-4o</option>
+                    <option value="groq">Groq Llama 3.3</option>
                   </select>
                 </div>
                 <div className="form-group">

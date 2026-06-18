@@ -29,9 +29,10 @@ export interface TestGenResult {
 export interface IAIProvider {
     analyzePage(params: PageAnalysisParams): Promise<PageAnalysisResult>;
     generatePlaywrightTest(params: TestGenParams): Promise<TestGenResult>;
+    chat(prompt: string, context?: string): Promise<string>;
 }
 export interface AIProviderConfig {
     apiKey?: string;
-    provider: 'claude' | 'openai';
+    provider: 'claude' | 'openai' | 'groq';
 }
 //# sourceMappingURL=types.d.ts.map

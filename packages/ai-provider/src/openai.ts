@@ -93,6 +93,38 @@ ${params.userSteps.map((step, idx) => `${idx + 1}. ${step}`).join('\n')}`;
     }
   }
 
+  async chat(prompt: string, context?: string): Promise<string> {
+    if (!this.client) {
+      return this.generateMockChat(prompt);
+    }
+
+    try {
+      const systemPrompt = `You are an expert QA engineer and automation specialist helping users with Playwright testing, website auditing, and quality assurance.
+Provide clear, actionable, and technical advice. When appropriate, include code examples using Playwright syntax.
+Keep responses concise but comprehensive.`;
+
+      const messages: any[] = [
+        { role: 'system', content: systemPrompt }
+      ];
+
+      if (context) {
+        messages.push({ role: 'user', content: `Context: ${context}` });
+      }
+
+      messages.push({ role: 'user', content: prompt });
+
+      const response = await this.client.chat.completions.create({
+        model: 'gpt-4o',
+        messages
+      });
+
+      return response.choices[0].message.content || '';
+    } catch (err) {
+      console.error('OpenAI API chat failed, returning mock fallback:', err);
+      return this.generateMockChat(prompt);
+    }
+  }
+
   private generateMockAnalysis(params: PageAnalysisParams): PageAnalysisResult {
     // Rely on ClaudeProvider's mock helper logic
     const bugs: any[] = [];
@@ -172,5 +204,53 @@ ${stepsCode}
 `;
 
     return { code };
+  }
+
+  private generateMockChat(prompt: string): string {
+    const lowerPrompt = prompt.toLowerCase();
+    
+    if (lowerPrompt.includes('playwright') || lowerPrompt.includes('test')) {
+      return `I can help you with Playwright testing! Here are some key points:
+
+1. **Setup**: Install Playwright with \`npm init playwright@latest\`
+2. **Selectors**: Use role-based selectors like \`page.getByRole('button')\` for better reliability
+3. **Waits**: Playwright has auto-waiting, but use \`waitForSelector()\` for dynamic content
+4. **Assertions**: Use \`expect()\` with built-in matchers like \`toBeVisible()\`
+
+For your specific query about "${prompt.substring(0, 50)}...", I'd recommend:
+- Start with a simple navigation test
+- Add assertions for key elements
+- Use test fixtures for shared setup
+
+Would you like me to generate a specific test script for your use case?`;
+    }
+    
+    if (lowerPrompt.includes('bug') || lowerPrompt.includes('error') || lowerPrompt.includes('debug')) {
+      return `For debugging and bug analysis, I recommend:
+
+1. **Console Logs**: Check browser console for JavaScript errors
+2. **Network Tab**: Monitor failed API calls and slow responses
+3. **Accessibility**: Use axe-devtools or Playwright's a11y audit
+4. **Screenshots**: Capture screenshots at failure points
+
+Common issues to look for:
+- Missing ARIA labels on interactive elements
+- Contrast ratio below 4.5:1
+- Unhandled promise rejections
+- Memory leaks in single-page apps
+
+What specific issue are you encountering?`;
+    }
+    
+    return `I'm here to help with your QA and automation needs! I can assist with:
+
+- **Playwright Test Generation**: Create automated test scripts
+- **Bug Analysis**: Identify and categorize website issues
+- **Accessibility Audits**: Check for WCAG compliance
+- **Performance Testing**: Analyze page load times and bottlenecks
+
+Your query: "${prompt}"
+
+Please provide more details about what you'd like to accomplish, and I'll give you specific guidance and code examples.`;
   }
 }

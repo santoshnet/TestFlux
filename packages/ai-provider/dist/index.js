@@ -17,13 +17,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createAIProvider = createAIProvider;
 const claude_1 = require("./claude");
 const openai_1 = require("./openai");
+const groq_1 = require("./groq");
 __exportStar(require("./types"), exports);
 __exportStar(require("./claude"), exports);
 __exportStar(require("./openai"), exports);
+__exportStar(require("./groq"), exports);
 function createAIProvider(config) {
     switch (config.provider) {
         case 'openai':
             return new openai_1.OpenAIProvider(config.apiKey);
+        case 'groq':
+            return new groq_1.GroqProvider(config.apiKey);
         case 'claude':
         default:
             return new claude_1.ClaudeProvider(config.apiKey);

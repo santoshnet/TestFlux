@@ -97,7 +97,9 @@ let RunExecutionService = class RunExecutionService {
         const aiProviderName = project.aiProvider || this.configService.get('AI_PROVIDER') || 'claude';
         const apiKey = aiProviderName === 'openai'
             ? this.configService.get('OPENAI_API_KEY')
-            : this.configService.get('ANTHROPIC_API_KEY');
+            : aiProviderName === 'groq'
+                ? this.configService.get('GROQ_API_KEY')
+                : this.configService.get('ANTHROPIC_API_KEY');
         const aiProvider = (0, ai_provider_1.createAIProvider)({
             provider: aiProviderName,
             apiKey

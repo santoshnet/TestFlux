@@ -9,10 +9,11 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.22.0",
+    "groq-sdk": "^1.2.1",
     "openai": "^4.40.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "@types/node": "^20.11.0"
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0"
   }
 }

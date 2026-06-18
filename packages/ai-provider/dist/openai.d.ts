@@ -4,7 +4,9 @@ export declare class OpenAIProvider implements IAIProvider {
     constructor(apiKey?: string);
     analyzePage(params: PageAnalysisParams): Promise<PageAnalysisResult>;
     generatePlaywrightTest(params: TestGenParams): Promise<TestGenResult>;
+    chat(prompt: string, context?: string): Promise<string>;
     private generateMockAnalysis;
     private generateMockTest;
+    private generateMockChat;
 }
 //# sourceMappingURL=openai.d.ts.map

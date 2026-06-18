@@ -46,9 +46,11 @@ export class AgentsService {
     const providerName = this.configService.get<string>('AI_PROVIDER') || 'claude';
     const apiKey = providerName === 'openai'
       ? this.configService.get<string>('OPENAI_API_KEY')
+      : providerName === 'groq'
+      ? this.configService.get<string>('GROQ_API_KEY')
       : this.configService.get<string>('ANTHROPIC_API_KEY');
 
-    const ai = createAIProvider({ provider: providerName as 'claude' | 'openai', apiKey });
+    const ai = createAIProvider({ provider: providerName as 'claude' | 'openai' | 'groq', apiKey });
     
     // Create entity in running status
     const task = this.agentTasksRepository.create({
@@ -66,15 +68,8 @@ export class AgentsService {
       let responseContent = '';
 
       if (apiKey) {
-        // If keys are present, call a general completion via mock prompt wrappers. Since ai-provider exposes analyze/test methods,
-        // we can wrap a quick response or fallback to mock if direct agent completions are not exported.
-        // For simplicity and stability, we'll ask the provider for a mock test gen or format a custom query.
-        // Let's implement a fallback that calls generatePlaywrightTest or formats a mock response.
-        const mockRes = await ai.generatePlaywrightTest({
-          url: 'QA Prompt',
-          userSteps: [prompt]
-        });
-        responseContent = `Here is my recommendation for your query: "${prompt}".\n\nI have generated the following Playwright script:\n\n\`\`\`typescript\n${mockRes.code}\n\`\`\``;
+        // Use the new chat method for proper AI interaction
+        responseContent = await ai.chat(prompt, `Agent: ${assignedAgent}`);
       } else {
         responseContent = `[Mock Agent Response - No API Key]
 I am the **${assignedAgent}**. You asked: "${prompt}".

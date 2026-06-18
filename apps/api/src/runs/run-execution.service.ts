@@ -52,12 +52,14 @@ export class RunExecutionService {
 
   private async executeRunBackground(run: Run, project: Project): Promise<void> {
     const aiProviderName = project.aiProvider || this.configService.get<string>('AI_PROVIDER') || 'claude';
-    const apiKey = aiProviderName === 'openai' 
-      ? this.configService.get<string>('OPENAI_API_KEY') 
+    const apiKey = aiProviderName === 'openai'
+      ? this.configService.get<string>('OPENAI_API_KEY')
+      : aiProviderName === 'groq'
+      ? this.configService.get<string>('GROQ_API_KEY')
       : this.configService.get<string>('ANTHROPIC_API_KEY');
 
     const aiProvider = createAIProvider({
-      provider: aiProviderName as 'claude' | 'openai',
+      provider: aiProviderName as 'claude' | 'openai' | 'groq',
       apiKey
     });
 
