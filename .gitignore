@@ -1,0 +1,13 @@
+node_modules
+/dist
+/.next
+/out
+/.turbo
+.env
+.env*.local
+.local-db
+public/local-artifacts
+*.sqlite
+*.sqlite-journal
+*.db
+uploads

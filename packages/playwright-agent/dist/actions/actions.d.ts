@@ -1,0 +1,47 @@
+import { Page } from 'playwright';
+import { BrowserAction } from '../types';
+export declare class ActionsRunner {
+    private page;
+    private baseUrl;
+    constructor(page: Page, baseUrl: string);
+    runStep(step: string): Promise<Omit<BrowserAction, 'screenshotPath'>>;
+    private clickByName;
+    private clickByNormalizedText;
+    private findBestClickableLocator;
+    private clickFirstVisible;
+    private clickLocator;
+    private fillField;
+    private fillFieldOnce;
+    private findBestFieldLocator;
+    private tryFillLocator;
+    private closeModal;
+    private waitForExpectedUrl;
+    private normalizeUrl;
+    private escapeRegExp;
+    private flexibleNamePattern;
+    private removeTrailingCount;
+    private redactSensitiveText;
+    private parseFieldInstruction;
+    private parseNaturalFieldInstruction;
+    private normalizeCommandText;
+    private isLikelyFieldLabel;
+    private cleanFieldLabel;
+    private isPasswordLabel;
+    private hasRedactedPlaceholder;
+    private parseOpenInstruction;
+    private parseClickTarget;
+    private parseUrlCheck;
+    private parseScrollTarget;
+    private isCloseModalInstruction;
+    private stripWrappingQuotes;
+    private parseWaitMs;
+    private urlsMatch;
+    private normalizeComparableUrl;
+    private expandClickNames;
+    private parseHoverTarget;
+    private hoverByName;
+    private parsePressKey;
+    private parseAssertText;
+    private sleep;
+}
+//# sourceMappingURL=actions.d.ts.map

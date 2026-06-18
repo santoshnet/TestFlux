@@ -1,0 +1,17 @@
+{
+  "name": "ai-playwright-agent-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Autonomous AI Website QA Agent Workspace",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

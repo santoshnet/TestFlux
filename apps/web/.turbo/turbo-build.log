@@ -1,0 +1,35 @@
+
+> @aia/web@1.0.0 build F:\AiDevelopment\OpenSource\TestFlux\apps\web
+> next build
+
+  ▲ Next.js 14.2.35
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/6) ...
+   Generating static pages (1/6) 
+   Generating static pages (2/6) 
+   Generating static pages (4/6) 
+ ✓ Generating static pages (6/6)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    3.25 kB         104 kB
+├ ○ /_not-found                          872 B          88.1 kB
+├ ○ /agents                              3.39 kB        95.5 kB
+├ ƒ /bugs/[bugId]                        2.09 kB        98.1 kB
+├ ○ /projects                            3.52 kB         104 kB
+├ ƒ /projects/[id]                       5.61 kB         106 kB
+└ ƒ /runs/[runId]                        3.92 kB         105 kB
++ First Load JS shared by all            87.3 kB
+  ├ chunks/5b8f0dd8-16e51007fc3e8001.js  53.6 kB
+  ├ chunks/749-541f6091f83e15d2.js       31.7 kB
+  └ other shared chunks (total)          1.9 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
