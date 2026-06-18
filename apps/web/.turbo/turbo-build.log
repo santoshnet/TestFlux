@@ -21,8 +21,8 @@ Route (app)                              Size     First Load JS
 ├ ○ /_not-found                          872 B          88.1 kB
 ├ ○ /agents                              3.39 kB        95.5 kB
 ├ ƒ /bugs/[bugId]                        2.09 kB        98.1 kB
-├ ○ /projects                            3.52 kB         104 kB
-├ ƒ /projects/[id]                       5.61 kB         106 kB
+├ ○ /projects                            3.54 kB         104 kB
+├ ƒ /projects/[id]                       5.96 kB         107 kB
 └ ƒ /runs/[runId]                        3.92 kB         105 kB
 + First Load JS shared by all            87.3 kB
   ├ chunks/5b8f0dd8-16e51007fc3e8001.js  53.6 kB

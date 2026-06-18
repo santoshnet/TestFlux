@@ -3,13 +3,16 @@ import { BrowserAction } from '../types';
 export declare class ActionsRunner {
     private page;
     private baseUrl;
+    private networkFailures;
     constructor(page: Page, baseUrl: string);
+    private setupNetworkMonitoring;
     runStep(step: string): Promise<Omit<BrowserAction, 'screenshotPath'>>;
     private clickByName;
     private clickByNormalizedText;
     private findBestClickableLocator;
     private clickFirstVisible;
     private clickLocator;
+    private highlightElement;
     private fillField;
     private fillFieldOnce;
     private findBestFieldLocator;
@@ -43,5 +46,13 @@ export declare class ActionsRunner {
     private parsePressKey;
     private parseAssertText;
     private sleep;
+    private parseConditionalStep;
+    private executeConditional;
+    private evaluateCondition;
+    private checkTextVisible;
+    private checkElementExists;
+    private checkElementVisible;
+    private checkUrlContains;
+    private checkStatusCode;
 }
 //# sourceMappingURL=actions.d.ts.map

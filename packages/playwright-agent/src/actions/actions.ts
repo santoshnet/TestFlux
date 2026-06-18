@@ -4,10 +4,23 @@ import { BrowserAction } from '../types';
 export class ActionsRunner {
   private page: Page;
   private baseUrl: string;
+  private networkFailures: string[] = [];
 
   constructor(page: Page, baseUrl: string) {
     this.page = page;
     this.baseUrl = this.normalizeUrl(baseUrl);
+    this.setupNetworkMonitoring();
+  }
+
+  private setupNetworkMonitoring() {
+    this.page.on('response', (response) => {
+      if (response.status() >= 400) {
+        this.networkFailures.push(`HTTP Response ${response.status()}: ${response.url()}`);
+      }
+    });
+    this.page.on('requestfailed', (request) => {
+      this.networkFailures.push(`Request failed: ${request.url()} - ${request.failure()?.errorText}`);
+    });
   }
 
   async runStep(step: string): Promise<Omit<BrowserAction, 'screenshotPath'>> {
@@ -15,6 +28,12 @@ export class ActionsRunner {
     const safeStep = this.redactSensitiveText(step);
 
     try {
+      // 0. Check for conditional statements first
+      const conditional = this.parseConditionalStep(step);
+      if (conditional) {
+        return await this.executeConditional(conditional, safeStep);
+      }
+
       // 1. Fill Input Field
       const fieldInstruction = this.parseFieldInstruction(step);
       if (fieldInstruction) {
@@ -168,11 +187,16 @@ export class ActionsRunner {
         return { type: 'scroll', stepText: safeStep, selector: 'bottom', status: 'passed' };
       }
 
+      // 15. End / Stop / Finish - terminate test execution
+      if (/^(end|stop|finish|terminate|close\s+browser|exit)$/i.test(normalized.trim())) {
+        return { type: 'end', stepText: safeStep, status: 'passed', detail: 'Test execution terminated' };
+      }
+
       return {
         type: 'wait',
         stepText: safeStep,
         status: 'failed',
-        detail: 'Unsupported instruction. Supported: Open [URL], Click [Button], [Field]: [Value], Hover [Element], Press [Key], Scroll to [Text], Scroll top/bottom, Assert text [Text], Check URL [URL], Close modal, Go back, Go forward, Wait [Time], Screenshot'
+        detail: 'Unsupported instruction. Supported: Open [URL], Click [Button], [Field]: [Value], Hover [Element], Press [Key], Scroll to [Text], Scroll top/bottom, Assert text [Text], Check URL [URL], Close modal, Go back, Go forward, Wait [Time], Screenshot, End/Stop'
       };
     } catch (err) {
       return {
@@ -302,6 +326,9 @@ export class ActionsRunner {
   }
 
   private async clickLocator(locator: any) {
+    // Highlight element before clicking
+    await this.highlightElement(locator);
+
     const popupPromise = this.page.waitForEvent('popup', { timeout: 5000 }).catch(() => null);
     await locator.click({ timeout: 7000, noWaitAfter: true }).catch((err: unknown) => {
       const message = err instanceof Error ? err.message : String(err);
@@ -314,6 +341,23 @@ export class ActionsRunner {
       await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
       await popup.bringToFront().catch(() => {});
       this.page = popup; // Swap the current active tab
+    }
+  }
+
+  private async highlightElement(locator: any): Promise<void> {
+    try {
+      await locator.evaluate((el: HTMLElement) => {
+        el.style.boxShadow = '0 0 10px 4px rgba(255, 0, 0, 0.8)';
+        el.style.border = '3px solid red';
+        el.style.transition = 'all 0.2s ease';
+      });
+      await this.sleep(300); // Brief highlight duration
+      await locator.evaluate((el: HTMLElement) => {
+        el.style.boxShadow = '';
+        el.style.border = '';
+      });
+    } catch {
+      // Ignore highlighting errors
     }
   }
 
@@ -442,6 +486,9 @@ export class ActionsRunner {
       if (!(await locator.count())) return false;
       if (!(await locator.isVisible({ timeout: 1000 }).catch(() => false))) return false;
       if (!(await locator.isEnabled({ timeout: 1000 }).catch(() => false))) return false;
+
+      // Highlight the field before filling
+      await this.highlightElement(locator);
 
       const meta = await locator.evaluate((element: Element) => ({
         tagName: element.tagName.toLowerCase(),
@@ -729,6 +776,8 @@ export class ActionsRunner {
         for (let i = 0; i < Math.min(count, 5); i++) {
           const candidate = locator.nth(i);
           if (await candidate.isVisible({ timeout: 500 }).catch(() => false)) {
+            // Highlight element before hovering
+            await this.highlightElement(candidate);
             await candidate.hover({ timeout: 7000 });
             return;
           }
@@ -737,6 +786,8 @@ export class ActionsRunner {
       // Fallback: scored locator search
       const scored = await this.findBestClickableLocator(this.page, n);
       if (scored) {
+        // Highlight element before hovering
+        await this.highlightElement(scored);
         await scored.hover({ timeout: 7000 });
         return;
       }
@@ -776,4 +827,161 @@ export class ActionsRunner {
   private sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
+
+  // --- Conditional Step Support ---
+
+  private parseConditionalStep(step: string): ConditionalStep | null {
+    // Parse patterns like:
+    // "IF text 'Login failed' THEN click Register"
+    // "IF text 'Login failed' THEN click Register ELSE click Forgot Password"
+    // "IF element exists 'Error message' THEN click Close"
+    // "IF text 'Invalid Username or Password.' wait 3s THEN click register"
+    // "IF status code 401 THEN click register"
+    const pattern = /^if\s+(text|element\s+exists|element\s+visible|url\s+contains|status\s+code)\s+['"]?(.+?)['"]?(?:\s+wait\s+(\d+(?:\.\d+)?)\s*(s|sec|second|seconds|ms|millisecond|milliseconds))?\s+then\s+(.+?)(?:\s+else\s+(.+))?$/i;
+    const match = step.trim().match(pattern);
+    
+    if (!match) return null;
+
+    return {
+      conditionType: match[1].toLowerCase().replace(/\s+/g, '_') as ConditionType,
+      conditionValue: match[2],
+      waitBeforeCheck: match[3] ? this.parseWaitMs(`wait ${match[3]} ${match[4] || 's'}`) : undefined,
+      thenStep: match[5].trim(),
+      elseStep: match[6] ? match[6].trim() : undefined
+    };
+  }
+
+  private async executeConditional(conditional: ConditionalStep, safeStep: string): Promise<Omit<BrowserAction, 'screenshotPath'>> {
+    // Wait before checking condition if specified (useful for toast messages that appear after delay)
+    if (conditional.waitBeforeCheck) {
+      await this.sleep(conditional.waitBeforeCheck);
+    }
+
+    const conditionMet = await this.evaluateCondition(conditional);
+
+    const stepToExecute = conditionMet ? conditional.thenStep : conditional.elseStep;
+
+    if (!stepToExecute) {
+      return {
+        type: 'conditional',
+        stepText: safeStep,
+        status: 'passed',
+        detail: `Condition not met, no ELSE step to execute`
+      };
+    }
+
+    try {
+      const result = await this.runStep(stepToExecute);
+      return {
+        type: 'conditional',
+        stepText: safeStep,
+        status: result.status,
+        detail: `Condition ${conditionMet ? 'met' : 'not met'}, executed: ${stepToExecute}`
+      };
+    } catch (err) {
+      return {
+        type: 'conditional',
+        stepText: safeStep,
+        status: 'failed',
+        detail: `Failed to execute conditional step: ${err instanceof Error ? err.message : String(err)}`
+      };
+    }
+  }
+
+  private async evaluateCondition(conditional: ConditionalStep): Promise<boolean> {
+    switch (conditional.conditionType) {
+      case 'text':
+        return await this.checkTextVisible(conditional.conditionValue);
+      case 'element_exists':
+        return await this.checkElementExists(conditional.conditionValue);
+      case 'element_visible':
+        return await this.checkElementVisible(conditional.conditionValue);
+      case 'url_contains':
+        return await this.checkUrlContains(conditional.conditionValue);
+      case 'status_code':
+        return await this.checkStatusCode(conditional.conditionValue);
+      default:
+        return false;
+    }
+  }
+
+  private async checkTextVisible(text: string): Promise<boolean> {
+    try {
+      // Check main page first
+      const mainLocator = this.page.getByText(new RegExp(this.escapeRegExp(text), 'i')).first();
+      if (await mainLocator.isVisible({ timeout: 3000 }).catch(() => false)) {
+        // Highlight the text element when found
+        await this.highlightElement(mainLocator);
+        return true;
+      }
+
+      // Check all frames (useful for iframes, shadow DOM, etc.)
+      const contexts = [this.page, ...this.page.frames()];
+      for (const context of contexts) {
+        const frameLocator = context.getByText(new RegExp(this.escapeRegExp(text), 'i')).first();
+        if (await frameLocator.isVisible({ timeout: 1000 }).catch(() => false)) {
+          // Highlight the text element when found
+          await this.highlightElement(frameLocator);
+          return true;
+        }
+      }
+
+      // Check body text directly as fallback (useful for toast messages)
+      const bodyText = await this.page.evaluate(() => document.body.innerText);
+      return bodyText.toLowerCase().includes(text.toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkElementExists(selector: string): Promise<boolean> {
+    try {
+      const locator = this.page.locator(selector);
+      const count = await locator.count().catch(() => 0);
+      return count > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkElementVisible(selector: string): Promise<boolean> {
+    try {
+      const locator = this.page.locator(selector);
+      return await locator.isVisible({ timeout: 3000 }).catch(() => false);
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkUrlContains(url: string): Promise<boolean> {
+    try {
+      const currentUrl = this.page.url();
+      return currentUrl.toLowerCase().includes(url.toLowerCase());
+    } catch {
+      return false;
+    }
+  }
+
+  private async checkStatusCode(statusCode: string): Promise<boolean> {
+    try {
+      // Check if any network failure matches the status code
+      const targetCode = statusCode.trim();
+      return this.networkFailures.some(failure =>
+        failure.includes(`HTTP Response ${targetCode}`) ||
+        failure.includes(`${targetCode}:`)
+      );
+    } catch {
+      return false;
+    }
+  }
 }
+
+interface ConditionalStep {
+  conditionType: ConditionType;
+  conditionValue: string;
+  waitBeforeCheck?: number;
+  thenStep: string;
+  elseStep?: string;
+}
+
+type ConditionType = 'text' | 'element_exists' | 'element_visible' | 'url_contains' | 'status_code';

@@ -535,8 +535,51 @@ export default function ProjectDetailsPage({ params }: { params: { id: string } 
             />
             <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '6px 0 0' }}>
               Each line = one step. Press <kbd style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '3px', padding: '1px 5px', fontSize: '0.68rem' }}>Enter</kbd> to start a new step.
-              Supported: <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Open [url]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Click [button]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Hover [element]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Field: value</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Assert text [text]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Press [key]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Scroll to [text]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Scroll top/bottom</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Go back</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Wait 2s</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Screenshot</code>
+              Supported: <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Open [url]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Click [button]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Hover [element]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Field: value</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Assert text [text]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Press [key]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Scroll to [text]</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Scroll top/bottom</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Go back</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Wait 2s</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>Screenshot</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>End/Stop</code>
             </p>
+
+            {/* Conditional syntax instructions */}
+            <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(20,184,166,0.08)', border: '1px solid rgba(20,184,166,0.25)', borderRadius: '6px' }}>
+              <p style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent-teal)', margin: '0 0 8px' }}>
+                Conditional Steps
+              </p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0 0 6px', lineHeight: 1.4 }}>
+                Add conditional logic to handle different scenarios:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.72rem', fontFamily: 'var(--font-mono)' }}>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF text 'Login failed' THEN click Register</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF text 'Error' THEN click Close ELSE click Retry</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF text 'Invalid Username' wait 3s THEN click Register</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF status code 401 THEN click Register</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF element exists '.error-modal' THEN click Dismiss</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF url contains 'dashboard' THEN click Profile</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF status code 401 THEN click register</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF status code 500 THEN click Retry</code>
+                </div>
+                <div style={{ color: 'var(--text-primary)' }}>
+                  <code style={{ color: 'var(--accent-teal)' }}>IF status code 403 THEN click Logout</code>
+                </div>
+              </div>
+              <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', margin: '8px 0 0' }}>
+                Conditions: <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>text</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>element exists</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>element visible</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>url contains</code> · <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>status code</code>
+                · Add <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem' }}>wait Xs</code> before THEN for delayed elements (e.g., toast messages)
+              </p>
+            </div>
 
             {/* Live numbered preview */}
             {parsedSteps.length > 0 && (

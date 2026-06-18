@@ -18,7 +18,7 @@ export interface CrawlResult {
     snapshots: PageSnapshot[];
 }
 export interface BrowserAction {
-    type: 'click' | 'fill' | 'navigate' | 'scroll' | 'wait' | 'close_modal' | 'assert_url' | 'hover' | 'press_key' | 'assert_text' | 'screenshot';
+    type: 'click' | 'fill' | 'navigate' | 'scroll' | 'wait' | 'close_modal' | 'assert_url' | 'hover' | 'press_key' | 'assert_text' | 'screenshot' | 'conditional' | 'end';
     selector?: string;
     value?: string;
     stepText: string;
