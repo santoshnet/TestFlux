@@ -1,8 +1,8 @@
 node_modules
-/dist
-/.next
-/out
-/.turbo
+dist
+.next
+out
+.turbo
 .env
 .env*.local
 .local-db
@@ -11,3 +11,8 @@ public/local-artifacts
 *.sqlite-journal
 *.db
 uploads
+apps/api/dist
+apps/web/.next
+packages/*/dist
+**/dist
+**/.next

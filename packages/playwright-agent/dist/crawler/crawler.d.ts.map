@@ -1,1 +1,0 @@
-{"version":3,"file":"crawler.d.ts","sourceRoot":"","sources":["../../src/crawler/crawler.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,YAAY,EAAE,WAAW,EAAgB,MAAM,UAAU,CAAC;AAEnE,qBAAa,OAAO;IACZ,KAAK,CAAC,OAAO,EAAE,YAAY,GAAG,OAAO,CAAC,WAAW,CAAC;IA+IxD,OAAO,CAAC,YAAY;IAKpB,OAAO,CAAC,sBAAsB;CAa/B"}

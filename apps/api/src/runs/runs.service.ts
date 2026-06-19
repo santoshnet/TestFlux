@@ -39,6 +39,11 @@ export class RunsService implements OnApplicationBootstrap {
   }
 
   async findAllByProject(projectId: string): Promise<Run[]> {
+    if (projectId === 'all') {
+      return this.runsRepository.find({
+        order: { createdAt: 'DESC' },
+      });
+    }
     return this.runsRepository.find({
       where: { projectId },
       order: { createdAt: 'DESC' },
