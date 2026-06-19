@@ -16,3 +16,4 @@ apps/web/.next
 packages/*/dist
 **/dist
 **/.next
+*.tsbuildinfo
