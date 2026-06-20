@@ -5,6 +5,15 @@ export interface PageSnapshot {
   consoleLogs: string[];
   networkFailures: string[];
   a11yIssues: string[];
+  seoIssues: SEOIssue[];
+}
+
+export interface SEOIssue {
+  title: string;
+  description: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  category: 'title' | 'meta' | 'headings' | 'images' | 'links' | 'content' | 'performance' | 'mobile' | 'structured_data';
+  selector?: string;
 }
 
 export interface CrawlOptions {
@@ -21,13 +30,15 @@ export interface CrawlResult {
 }
 
 export interface BrowserAction {
-  type: 'click' | 'fill' | 'navigate' | 'scroll' | 'wait' | 'close_modal' | 'assert_url' | 'hover' | 'press_key' | 'assert_text' | 'screenshot' | 'conditional' | 'end';
+  type: 'click' | 'fill' | 'navigate' | 'scroll' | 'wait' | 'close_modal' | 'assert_url' | 'hover' | 'press_key' | 'assert_text' | 'screenshot' | 'conditional' | 'end' | 'upload';
   selector?: string;
   value?: string;
   stepText: string;
   status: 'passed' | 'failed';
   detail?: string;
   screenshotPath?: string;
+  filePath?: string;
+  description?: string;
 }
 
 export interface BugReport {

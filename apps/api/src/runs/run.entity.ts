@@ -24,6 +24,9 @@ export class Run {
   @Column({ type: 'int', default: 0 })
   bugsFound!: number;
 
+  @Column({ type: 'int', default: 0 })
+  seoIssuesFound!: number;
+
   @Column({ type: 'text', nullable: true })
   pagesDiscovered!: string | null; // JSON string of discovered URLs
 

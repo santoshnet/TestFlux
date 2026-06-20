@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { createAIProvider } from '@aia/ai-provider';
 import { Crawler, Analyzer, ActionsRunner, Reporter } from '@aia/playwright-agent';
 import { chromium, firefox, webkit, BrowserType } from 'playwright';
+import { SEOService } from '../seo/seo.service';
 import * as fs from 'fs';
 
 @Injectable()
@@ -21,7 +22,8 @@ export class RunExecutionService {
     @InjectRepository(Bug)
     private bugsRepository: Repository<Bug>,
     private storageService: StorageService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private seoService: SEOService
   ) {}
 
   async triggerRun(runId: string): Promise<void> {
@@ -68,6 +70,7 @@ export class RunExecutionService {
     const stepResults: any[] = [];
     let generatedTestCode: string | null = null;
     let artifacts: any = {};
+    let totalSEOIssues = 0;
 
     // Resolve the browser type from run.browser field (defaults to chromium)
     const browserTypeMap: Record<string, BrowserType> = { chromium, firefox, webkit };
@@ -134,13 +137,210 @@ export class RunExecutionService {
           finalScreenshotUrl = await this.storageService.uploadFile(`runs/${run.id}/final.png`, finalScreenshot, 'image/png');
         }
 
+        // Perform SEO analysis on the final page
+        const seoIssues = await page.evaluate(() => {
+          const issues: any[] = [];
+          
+          // Check page title
+          const title = document.querySelector('title');
+          if (!title) {
+            issues.push({
+              title: 'Missing page title',
+              description: 'Page has no <title> tag, which is essential for SEO',
+              severity: 'critical',
+              category: 'title',
+              selector: 'head'
+            });
+          } else if (title.textContent && title.textContent.length < 10) {
+            issues.push({
+              title: 'Page title too short',
+              description: `Page title is only ${title.textContent.length} characters. Recommended length is 50-60 characters.`,
+              severity: 'high',
+              category: 'title',
+              selector: 'title'
+            });
+          } else if (title.textContent && title.textContent.length > 60) {
+            issues.push({
+              title: 'Page title too long',
+              description: `Page title is ${title.textContent.length} characters. Recommended length is 50-60 characters for optimal search engine display.`,
+              severity: 'medium',
+              category: 'title',
+              selector: 'title'
+            });
+          }
+
+          // Check meta description
+          const metaDesc = document.querySelector('meta[name="description"]');
+          if (!metaDesc) {
+            issues.push({
+              title: 'Missing meta description',
+              description: 'Page has no meta description. This reduces click-through rates from search results.',
+              severity: 'high',
+              category: 'meta',
+              selector: 'meta[name="description"]'
+            });
+          } else {
+            const descContent = metaDesc.getAttribute('content');
+            if (descContent && descContent.length < 50) {
+              issues.push({
+                title: 'Meta description too short',
+                description: `Meta description is only ${descContent.length} characters. Recommended length is 150-160 characters.`,
+                severity: 'medium',
+                category: 'meta',
+                selector: 'meta[name="description"]'
+              });
+            } else if (descContent && descContent.length > 160) {
+              issues.push({
+                title: 'Meta description too long',
+                description: `Meta description is ${descContent.length} characters. Recommended length is 150-160 characters for optimal search engine display.`,
+                severity: 'low',
+                category: 'meta',
+                selector: 'meta[name="description"]'
+              });
+            }
+          }
+
+          // Check canonical tag
+          const canonical = document.querySelector('link[rel="canonical"]');
+          if (!canonical) {
+            issues.push({
+              title: 'Missing canonical tag',
+              description: 'Page has no canonical tag, which can lead to duplicate content issues.',
+              severity: 'medium',
+              category: 'meta',
+              selector: 'link[rel="canonical"]'
+            });
+          }
+
+          // Check Open Graph tags
+          const ogTitle = document.querySelector('meta[property="og:title"]');
+          const ogDesc = document.querySelector('meta[property="og:description"]');
+          const ogImage = document.querySelector('meta[property="og:image"]');
+          if (!ogTitle || !ogDesc || !ogImage) {
+            issues.push({
+              title: 'Missing Open Graph tags',
+              description: 'Page is missing some Open Graph tags (og:title, og:description, og:image), which improve social media sharing.',
+              severity: 'low',
+              category: 'meta',
+              selector: 'meta[property^="og:"]'
+            });
+          }
+
+          // Check Twitter Card tags
+          const twitterCard = document.querySelector('meta[name="twitter:card"]');
+          if (!twitterCard) {
+            issues.push({
+              title: 'Missing twitter:card tag',
+              description: 'Page is missing twitter:card tag, which is important for Twitter card display.',
+              severity: 'low',
+              category: 'meta',
+              selector: 'meta[name="twitter:card"]'
+            });
+          }
+
+          // Check heading structure
+          const h1 = document.querySelectorAll('h1');
+          if (h1.length === 0) {
+            issues.push({
+              title: 'Missing H1 tag',
+              description: 'Page has no H1 heading, which is important for SEO and content structure.',
+              severity: 'critical',
+              category: 'headings',
+              selector: 'body'
+            });
+          } else if (h1.length > 1) {
+            issues.push({
+              title: 'Multiple H1 tags',
+              description: `Page has ${h1.length} H1 headings. Only one H1 per page is recommended for proper SEO structure.`,
+              severity: 'high',
+              category: 'headings',
+              selector: 'h1'
+            });
+          }
+
+          // Check for skipped heading levels
+          const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+          let prevLevel = 0;
+          for (const heading of headings) {
+            const level = parseInt(heading.tagName[1]);
+            if (level > prevLevel + 1 && prevLevel !== 0) {
+              issues.push({
+                title: 'Skipped heading level',
+                description: `Heading structure jumps from H${prevLevel} to H${level}. Headings should follow a logical sequence.`,
+                severity: 'medium',
+                category: 'headings',
+                selector: heading.tagName
+              });
+              break;
+            }
+            prevLevel = level;
+          }
+
+          // Check for images without alt text
+          const images = document.querySelectorAll('img');
+          let imagesWithoutAlt = 0;
+          images.forEach((img) => {
+            if (!img.hasAttribute('alt') || img.getAttribute('alt')?.trim() === '') {
+              imagesWithoutAlt++;
+            }
+          });
+          if (imagesWithoutAlt > 0) {
+            issues.push({
+              title: 'Images missing alt text',
+              description: `${imagesWithoutAlt} image(s) missing alt text. Alt text is important for accessibility and SEO.`,
+              severity: 'high',
+              category: 'images',
+              selector: 'img'
+            });
+          }
+
+          // Check viewport meta tag for mobile
+          const viewport = document.querySelector('meta[name="viewport"]');
+          if (!viewport) {
+            issues.push({
+              title: 'Missing viewport meta tag',
+              description: 'Page has no viewport meta tag, which can cause mobile display issues.',
+              severity: 'critical',
+              category: 'mobile',
+              selector: 'meta[name="viewport"]'
+            });
+          }
+
+          // Check for favicon
+          const favicon = document.querySelector('link[rel="icon"], link[rel="shortcut icon"]');
+          if (!favicon) {
+            issues.push({
+              title: 'Missing favicon',
+              description: 'Page has no favicon, which affects branding and user experience in browser tabs.',
+              severity: 'low',
+              category: 'meta',
+              selector: 'link[rel="icon"]'
+            });
+          }
+
+          // Check content length
+          const bodyText = document.body?.textContent?.trim() || '';
+          if (bodyText.length < 300) {
+            issues.push({
+              title: 'Insufficient content',
+              description: `Page has only ${bodyText.length} characters of text content. Pages with more content tend to rank better in search results.`,
+              severity: 'medium',
+              category: 'content',
+              selector: 'body'
+            });
+          }
+
+          return issues;
+        });
+
         snapshots.push({
           url: page.url(),
           domSnapshot,
           screenshotUrl: finalScreenshotUrl,
           consoleLogs,
           networkFailures,
-          a11yIssues: []
+          a11yIssues: [],
+          seoIssues
         });
 
         await browser.close();
@@ -161,6 +361,15 @@ export class RunExecutionService {
         artifacts.stepResults = stepResults;
         run.artifacts = JSON.stringify(artifacts);
         await this.runsRepository.save(run);
+
+        // Process SEO issues for the final page
+        let totalSEOIssues = 0;
+        for (const snap of snapshots) {
+          if (snap.seoIssues && snap.seoIssues.length > 0) {
+            await this.seoService.createBulk(run.id, project.id, snap.url, snap.seoIssues);
+            totalSEOIssues += snap.seoIssues.length;
+          }
+        }
 
       } else {
         // General BFS Site Crawl flow
@@ -189,7 +398,8 @@ export class RunExecutionService {
             screenshotUrl,
             consoleLogs: snap.consoleLogs,
             networkFailures: snap.networkFailures,
-            a11yIssues: snap.a11yIssues
+            a11yIssues: snap.a11yIssues,
+            seoIssues: snap.seoIssues || []
           });
         }
       }
@@ -222,7 +432,17 @@ export class RunExecutionService {
         }
       }
 
-      // 4. Save generated Playwright test script file as an artifact
+      // 4. Process SEO issues for all pages
+      let totalSEOIssues = 0;
+      for (const snap of snapshots) {
+        if (snap.seoIssues && snap.seoIssues.length > 0) {
+          console.log(`Processing SEO issues for page: ${snap.url}, found ${snap.seoIssues.length} issues`);
+          await this.seoService.createBulk(run.id, project.id, snap.url, snap.seoIssues);
+          totalSEOIssues += snap.seoIssues.length;
+        }
+      }
+
+      // 5. Save generated Playwright test script file as an artifact
       if (generatedTestCode) {
         const specFilename = `runs/${run.id}/functional.spec.ts`;
         const testCodeUrl = await this.storageService.uploadFile(
@@ -233,11 +453,12 @@ export class RunExecutionService {
         artifacts.testCodeUrl = testCodeUrl;
       }
 
-      // 5. Complete the run metadata
+      // 6. Complete the run metadata
       run.status = 'completed';
       run.completedAt = new Date();
       run.pagesVisited = snapshots.length;
       run.bugsFound = totalBugs;
+      run.seoIssuesFound = totalSEOIssues;
       run.pagesDiscovered = JSON.stringify(snapshots.map((s) => s.url));
       run.generatedTestCode = generatedTestCode;
       
@@ -245,8 +466,9 @@ export class RunExecutionService {
       run.summary = JSON.stringify({
         totalPages: snapshots.length,
         totalBugs,
+        totalSEOIssues,
         duration: durationMs,
-        aiSummary: `Audit completed successfully. Discovered ${snapshots.length} page(s) and found ${totalBugs} bugs.`
+        aiSummary: `Audit completed successfully. Discovered ${snapshots.length} page(s), found ${totalBugs} bugs, and ${totalSEOIssues} SEO issues.`
       });
 
       artifacts.screenshotUrls = snapshots.map((s) => s.screenshotUrl).filter(Boolean);

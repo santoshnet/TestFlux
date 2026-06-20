@@ -74,6 +74,14 @@ export class ActionsRunner {
       }
 
       // 4. Click target
+      const enhancedClickTarget = this.parseEnhancedClickTarget(step);
+      if (enhancedClickTarget) {
+        const selector = enhancedClickTarget.target || enhancedClickTarget.selector || enhancedClickTarget.value || 'unknown';
+        const result = await this.clickByNameEnhanced(enhancedClickTarget.target ? [enhancedClickTarget.target] : [], enhancedClickTarget);
+        await this.sleep(1200);
+        return { type: 'click', stepText: safeStep, selector, status: result.status, detail: result.detail };
+      }
+
       const clickTarget = this.parseClickTarget(step);
       if (clickTarget) {
         await this.clickByName([clickTarget]);
@@ -192,11 +200,19 @@ export class ActionsRunner {
         return { type: 'end', stepText: safeStep, status: 'passed', detail: 'Test execution terminated' };
       }
 
+      // 16. Upload file with optional description
+      const uploadInstruction = this.parseUploadInstruction(step);
+      if (uploadInstruction) {
+        const result = await this.uploadFile(uploadInstruction.selector, uploadInstruction.filePath, uploadInstruction.description);
+        await this.sleep(800);
+        return result;
+      }
+
       return {
         type: 'wait',
         stepText: safeStep,
         status: 'failed',
-        detail: 'Unsupported instruction. Supported: Open [URL], Click [Button], [Field]: [Value], Hover [Element], Press [Key], Scroll to [Text], Scroll top/bottom, Assert text [Text], Check URL [URL], Close modal, Go back, Go forward, Wait [Time], Screenshot, End/Stop'
+        detail: 'Unsupported instruction. Supported: Open [URL], Click [Button], Click button/element with [id/testid/class], Click [selector], Click the [1st/2nd/last/top/bottom] [Button], [Field]: [Value], Hover [Element], Press [Key], Scroll to [Text], Scroll top/bottom, Assert text [Text], Check URL [URL], Close modal, Go back, Go forward, Wait [Time], Screenshot, Upload [file], End/Stop'
       };
     } catch (err) {
       return {
@@ -229,6 +245,79 @@ export class ActionsRunner {
     throw new Error(`Could not locate any clickable target matching: ${names.join(', ')}`);
   }
 
+  private async clickByNameEnhanced(names: string[], enhancedTarget: any): Promise<{ status: 'passed' | 'failed'; detail?: string }> {
+    try {
+      // Handle direct attribute selection first (no button text required)
+      if (enhancedTarget.type === 'direct-attribute') {
+        const clicked = await this.clickByDirectAttribute(enhancedTarget.attribute, enhancedTarget.value);
+        return clicked ? { status: 'passed' } : { 
+          status: 'failed', 
+          detail: `Could not locate element with ${enhancedTarget.attribute}="${enhancedTarget.value}"`
+        };
+      }
+
+      // Handle CSS selector selection
+      if (enhancedTarget.type === 'css-selector') {
+        const clicked = await this.clickByCssSelector(enhancedTarget.selector);
+        return clicked ? { status: 'passed' } : { 
+          status: 'failed', 
+          detail: `Could not locate element with selector "${enhancedTarget.selector}"`
+        };
+      }
+
+      // Handle text-based enhanced selection
+      for (const name of this.expandClickNames(names)) {
+        const pattern = this.flexibleNamePattern(name);
+        const locators = [
+          this.page.getByRole('link', { name: pattern }),
+          this.page.getByRole('button', { name: pattern }),
+          this.page.getByRole('tab', { name: pattern }),
+          this.page.getByRole('menuitem', { name: pattern }),
+          this.page.getByText(pattern),
+        ];
+
+        let clicked = false;
+
+        if (enhancedTarget.type === 'index') {
+          clicked = await this.clickByIndex(locators, enhancedTarget.index);
+        } else if (enhancedTarget.type === 'position') {
+          clicked = await this.clickByPosition(locators, enhancedTarget.position);
+        } else if (enhancedTarget.type === 'context') {
+          clicked = await this.clickByContext(locators, enhancedTarget.context);
+        } else if (enhancedTarget.type === 'attribute') {
+          clicked = await this.clickByAttribute(name, enhancedTarget.attribute, enhancedTarget.value);
+        }
+
+        if (clicked) return { status: 'passed' };
+
+        // Try normalized text approach with enhanced selection
+        const normalizedLocators = await this.findLocatorsByNormalizedText(name);
+        if (normalizedLocators && normalizedLocators.length > 0) {
+          if (enhancedTarget.type === 'index') {
+            if (enhancedTarget.index < normalizedLocators.length) {
+              await this.clickLocator(normalizedLocators[enhancedTarget.index]);
+              return { status: 'passed' };
+            }
+          } else if (enhancedTarget.type === 'position') {
+            const index = enhancedTarget.position === 'first' || enhancedTarget.position === 'top' ? 0 : normalizedLocators.length - 1;
+            await this.clickLocator(normalizedLocators[index]);
+            return { status: 'passed' };
+          }
+        }
+      }
+
+      return { 
+        status: 'failed', 
+        detail: `Could not locate clickable target matching "${names.join(', ')}" with ${enhancedTarget.type} selection` 
+      };
+    } catch (err) {
+      return { 
+        status: 'failed', 
+        detail: err instanceof Error ? err.message : String(err)
+      };
+    }
+  }
+
   private async clickByNormalizedText(name: string): Promise<boolean> {
     const contexts = [this.page, ...this.page.frames()];
     for (const context of contexts) {
@@ -239,6 +328,17 @@ export class ActionsRunner {
       }
     }
     return false;
+  }
+
+  private async findLocatorsByNormalizedText(name: string): Promise<any[] | null> {
+    const contexts = [this.page, ...this.page.frames()];
+    for (const context of contexts) {
+      const locators = await this.findAllClickableLocators(context, name);
+      if (locators && locators.length > 0) {
+        return locators;
+      }
+    }
+    return null;
   }
 
   private async findBestClickableLocator(context: Page | Frame, name: string) {
@@ -311,6 +411,76 @@ export class ActionsRunner {
     return best ? locator.nth(best.index) : null;
   }
 
+  private async findAllClickableLocators(context: Page | Frame, name: string) {
+    const selector = [
+      'a', 'button', '[role="button"]', '[role="link"]', '[role="menuitem"]',
+      '[role="tab"]', '[role="option"]', '[onclick]', '[tabindex]:not([tabindex="-1"])',
+      '[data-testid]', '[data-test]', '[data-qa]'
+    ].join(', ');
+
+    const locator = context.locator(selector);
+    const results = await locator.evaluateAll((elements: Element[], rawTarget: string) => {
+      const normalize = (value: unknown) => String(value || '')
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/\(\s*\d+\s*\)\s*$/g, '')
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const target = normalize(rawTarget);
+      const targetCompact = target.replace(/\s+/g, '');
+      const targetTokens = target.split(' ').filter(Boolean);
+      if (!target || targetTokens.length === 0) return [];
+
+      const elementText = (element: Element) => [
+        element.textContent,
+        element.getAttribute('aria-label'),
+        element.getAttribute('title'),
+        element.getAttribute('name'),
+        element.getAttribute('id'),
+        element.getAttribute('data-testid'),
+        element.getAttribute('data-test'),
+        element.getAttribute('data-qa')
+      ].filter(Boolean).join(' ');
+
+      const scoreCandidate = (candidateValue: string) => {
+        const candidate = normalize(candidateValue);
+        const candidateCompact = candidate.replace(/\s+/g, '');
+        if (!candidate) return 0;
+        if (candidate === target || candidateCompact === targetCompact) return 140;
+        if (candidate.startsWith(target) || candidateCompact.startsWith(targetCompact)) return 120;
+        if (candidate.includes(target) || candidateCompact.includes(targetCompact)) return 105;
+
+        const matchedTokens = targetTokens.filter((token) => candidate.includes(token)).length;
+        if (matchedTokens === targetTokens.length) return 90;
+        return matchedTokens > 0 ? matchedTokens * 20 : 0;
+      };
+
+      const validIndices: number[] = [];
+      elements.forEach((element, index) => {
+        const htmlElement = element as HTMLElement;
+        const ariaDisabled = element.getAttribute('aria-disabled') === 'true';
+        const input = element as HTMLInputElement;
+        if (htmlElement.hidden || input.disabled || ariaDisabled) return;
+
+        const rect = htmlElement.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+
+        const score = scoreCandidate(elementText(element));
+        if (score >= 80) {
+          validIndices.push(index);
+        }
+      });
+
+      return validIndices;
+    }, name).catch(() => []);
+
+    if (results.length === 0) return null;
+
+    return results.map(index => locator.nth(index));
+  }
+
   private async clickFirstVisible(locators: any[]): Promise<boolean> {
     for (const locator of locators) {
       const count = Math.min(await locator.count().catch(() => 0), 10);
@@ -320,6 +490,200 @@ export class ActionsRunner {
         if (!(await candidate.isEnabled({ timeout: 500 }).catch(() => false))) continue;
         await this.clickLocator(candidate);
         return true;
+      }
+    }
+    return false;
+  }
+
+  private async clickByIndex(locators: any[], index: number): Promise<boolean> {
+    for (const locator of locators) {
+      const count = await locator.count().catch(() => 0);
+      if (count <= index) continue;
+      
+      const candidate = locator.nth(index);
+      if (await candidate.isVisible({ timeout: 500 }).catch(() => false)) {
+        if (await candidate.isEnabled({ timeout: 500 }).catch(() => false)) {
+          await this.clickLocator(candidate);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private async clickByPosition(locators: any[], position: string): Promise<boolean> {
+    for (const locator of locators) {
+      const count = await locator.count().catch(() => 0);
+      if (count === 0) continue;
+
+      let targetIndex = 0;
+      if (position === 'last' || position === 'bottom') {
+        targetIndex = count - 1;
+      } else if (position === 'first' || position === 'top') {
+        targetIndex = 0;
+      }
+
+      const candidate = locator.nth(targetIndex);
+      if (await candidate.isVisible({ timeout: 500 }).catch(() => false)) {
+        if (await candidate.isEnabled({ timeout: 500 }).catch(() => false)) {
+          await this.clickLocator(candidate);
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private async clickByContext(locators: any[], context: string): Promise<boolean> {
+    for (const locator of locators) {
+      const count = await locator.count().catch(() => 0);
+      for (let index = 0; index < count; index += 1) {
+        const candidate = locator.nth(index);
+        
+        // Check if the element is within the specified context
+        const isInContext = await candidate.evaluate((el: Element, ctx: string) => {
+          let current: Element | null = el;
+          while (current && current !== document.body) {
+            const text = current.textContent?.toLowerCase() || '';
+            const id = (current as HTMLElement).id?.toLowerCase() || '';
+            const className = (current as HTMLElement).className?.toLowerCase() || '';
+            
+            if (text.includes(ctx.toLowerCase()) || 
+                id.includes(ctx.toLowerCase()) || 
+                className.includes(ctx.toLowerCase())) {
+              return true;
+            }
+            current = current.parentElement;
+          }
+          return false;
+        }, context).catch(() => false);
+
+        if (isInContext && await candidate.isVisible({ timeout: 500 }).catch(() => false)) {
+          if (await candidate.isEnabled({ timeout: 500 }).catch(() => false)) {
+            await this.clickLocator(candidate);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  private async clickByAttribute(target: string, attribute: string, value: string): Promise<boolean> {
+    const contexts = [this.page, ...this.page.frames()];
+    for (const context of contexts) {
+      const pattern = this.flexibleNamePattern(target);
+      
+      // Build selector with attribute
+      const selector = `*[${attribute}="${value}"]`;
+      try {
+        const elements = await context.locator(selector).all();
+        for (const element of elements) {
+          const text = await element.textContent().catch(() => '') || '';
+          if (pattern.test(text) || text.toLowerCase().includes(target.toLowerCase())) {
+            if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+              if (await element.isEnabled({ timeout: 500 }).catch(() => false)) {
+                await this.clickLocator(element);
+                return true;
+              }
+            }
+          }
+        }
+      } catch {
+        // Selector may be invalid, continue
+      }
+
+      // Try with role-based locators combined with attribute
+      const locators = [
+        context.getByRole('link', { name: pattern }),
+        context.getByRole('button', { name: pattern }),
+        context.getByRole('tab', { name: pattern }),
+        context.getByRole('menuitem', { name: pattern }),
+      ];
+
+      for (const locator of locators) {
+        const count = await locator.count().catch(() => 0);
+        for (let index = 0; index < count; index += 1) {
+          const candidate = locator.nth(index);
+          const attrValue = await candidate.getAttribute(attribute).catch(() => null);
+          if (attrValue === value || (attrValue && attrValue.includes(value))) {
+            if (await candidate.isVisible({ timeout: 500 }).catch(() => false)) {
+              if (await candidate.isEnabled({ timeout: 500 }).catch(() => false)) {
+                await this.clickLocator(candidate);
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  private async clickByDirectAttribute(attribute: string, value: string): Promise<boolean> {
+    const contexts = [this.page, ...this.page.frames()];
+    for (const context of contexts) {
+      // Handle different attribute naming conventions
+      let actualAttribute = attribute;
+      if (attribute === 'testid') {
+        actualAttribute = 'data-testid';
+      }
+      
+      // Build selector with attribute
+      const selector = `[${actualAttribute}="${value}"]`;
+      try {
+        const element = context.locator(selector).first();
+        if (await element.count() > 0) {
+          if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+            if (await element.isEnabled({ timeout: 500 }).catch(() => false)) {
+              await this.clickLocator(element);
+              return true;
+            }
+          }
+        }
+      } catch {
+        // Selector may be invalid, continue
+      }
+
+      // Try with common clickable roles
+      const clickableRoles = ['button', 'link', 'tab', 'menuitem', 'option'];
+      for (const role of clickableRoles) {
+        try {
+          const elements = await context.getByRole(role as any).all();
+          for (const element of elements) {
+            const attrValue = await element.getAttribute(actualAttribute).catch(() => null);
+            if (attrValue === value || (attrValue && attrValue.includes(value))) {
+              if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+                if (await element.isEnabled({ timeout: 500 }).catch(() => false)) {
+                  await this.clickLocator(element);
+                  return true;
+                }
+              }
+            }
+          }
+        } catch {
+          // Role may not exist, continue
+        }
+      }
+    }
+    return false;
+  }
+
+  private async clickByCssSelector(selector: string): Promise<boolean> {
+    const contexts = [this.page, ...this.page.frames()];
+    for (const context of contexts) {
+      try {
+        const element = context.locator(selector).first();
+        if (await element.count() > 0) {
+          if (await element.isVisible({ timeout: 500 }).catch(() => false)) {
+            if (await element.isEnabled({ timeout: 500 }).catch(() => false)) {
+              await this.clickLocator(element);
+              return true;
+            }
+          }
+        }
+      } catch {
+        // Selector may be invalid, continue
       }
     }
     return false;
@@ -395,7 +759,133 @@ export class ActionsRunner {
       }
     }
 
-    throw new Error(`Could not detect a visible form input matching label: "${label}"`);
+    throw new Error(`Could not find field with label: ${label}`);
+  }
+
+  private async uploadFile(selector: string, filePath: string, description: string | null): Promise<Omit<BrowserAction, 'screenshotPath'>> {
+    try {
+      const contexts = [this.page, ...this.page.frames()];
+      let fileInput = null;
+
+      // Try to find the file input by selector
+      for (const context of contexts) {
+        // Try CSS selector
+        try {
+          fileInput = await context.$(selector);
+          if (fileInput) break;
+        } catch {
+          // CSS selector failed, try other methods
+        }
+
+        // Try by role/label pattern
+        const pattern = this.flexibleNamePattern(selector);
+        const roleLocators = [
+          context.getByRole('textbox', { name: pattern }),
+          context.getByLabel(pattern)
+        ];
+
+        for (const locator of roleLocators) {
+          if (await locator.count() > 0) {
+            fileInput = await locator.elementHandle();
+            if (fileInput) break;
+          }
+        }
+
+        if (fileInput) break;
+      }
+
+      if (!fileInput) {
+        return {
+          type: 'upload',
+          stepText: `Upload ${filePath} to ${selector}`,
+          status: 'failed',
+          selector,
+          filePath,
+          detail: `Could not find file input with selector: ${selector}`
+        };
+      }
+
+      // Check if it's actually a file input
+      const inputType = await fileInput.evaluate((el: HTMLInputElement) => el.type);
+      if (inputType !== 'file') {
+        return {
+          type: 'upload',
+          stepText: `Upload ${filePath} to ${selector}`,
+          status: 'failed',
+          selector,
+          filePath,
+          detail: `Element is not a file input (type: ${inputType})`
+        };
+      }
+
+      // Handle file path - if it's a local file path, use it directly
+      // Otherwise, treat it as a relative path or create a temporary file
+      let absolutePath = filePath;
+      
+      // For testing purposes, if the file doesn't exist, create a dummy file
+      try {
+        const fs = require('fs');
+        if (!fs.existsSync(filePath)) {
+          // Create a dummy file for testing
+          const path = require('path');
+          const testDir = path.dirname(filePath);
+          if (!fs.existsSync(testDir)) {
+            fs.mkdirSync(testDir, { recursive: true });
+          }
+          fs.writeFileSync(filePath, 'dummy file content for testing');
+        }
+      } catch (err) {
+        // If we can't create the file, continue anyway and let Playwright handle the error
+      }
+
+      // Upload the file
+      await fileInput.setInputFiles(absolutePath);
+
+      // If description is provided, try to find and fill a description field
+      if (description) {
+        await this.sleep(500);
+        try {
+          await this.fillField('description', description);
+        } catch {
+          // Try common description field names
+          const descFields = ['Description', 'Caption', 'Text', 'Comment', 'Notes'];
+          let filled = false;
+          for (const field of descFields) {
+            try {
+              await this.fillField(field, description);
+              filled = true;
+              break;
+            } catch {
+              continue;
+            }
+          }
+          
+          if (!filled) {
+            // If we can't find a description field, just note it
+            console.log(`Could not find description field for: ${description}`);
+          }
+        }
+      }
+
+      return {
+        type: 'upload',
+        stepText: `Upload ${filePath}${description ? ` with description "${description}"` : ''} to ${selector}`,
+        status: 'passed',
+        selector,
+        filePath,
+        description: description || undefined
+      };
+
+    } catch (err) {
+      return {
+        type: 'upload',
+        stepText: `Upload ${filePath} to ${selector}`,
+        status: 'failed',
+        selector,
+        filePath,
+        detail: err instanceof Error ? err.message : String(err)
+      };
+    }
   }
 
   private async findBestFieldLocator(context: Page | Frame, label: string) {
@@ -695,6 +1185,92 @@ export class ActionsRunner {
       .trim();
   }
 
+  private parseEnhancedClickTarget(step: string) {
+    const normalized = step.trim().replace(/\s+/g, ' ');
+    
+    // Pattern 0: Direct ID/TestID selection - "Click button with id 'primary-submit'", "Click element with testid 'submit-btn'"
+    const directIdMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(?:button|element)\s+with\s+(id|testid|data-testid|data-test|data-qa)\s+['"](.+)['"]$/i);
+    if (directIdMatch) {
+      return {
+        type: 'direct-attribute',
+        attribute: directIdMatch[2].toLowerCase(),
+        value: directIdMatch[3].trim()
+      };
+    }
+
+    // Pattern 0.5: Direct CSS selector - "Click element #submit-btn", "Click .btn-primary"
+    const directSelectorMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(?:element\s+)?([#.][\w-]+)$/i);
+    if (directSelectorMatch) {
+      return {
+        type: 'css-selector',
+        selector: directSelectorMatch[2].trim()
+      };
+    }
+
+    // Pattern 1: Index-based selection - "Click the 2nd Submit button", "Click the 3rd Save button"
+    const indexMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(?:the\s+)?(\d+)(?:st|nd|rd|th)?\s+(.+?)(?:\s+button)?$/i);
+    if (indexMatch) {
+      return {
+        type: 'index',
+        index: parseInt(indexMatch[2]) - 1, // Convert to 0-based index
+        target: indexMatch[3].trim().replace(/button$/, '').trim()
+      };
+    }
+
+    // Pattern 2: Last/First based - "Click the last Submit button", "Click the first Save button"
+    const positionMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(the\s+)?(first|last)\s+(.+?)(?:\s+button)?$/i);
+    if (positionMatch) {
+      return {
+        type: 'position',
+        position: positionMatch[2].toLowerCase() as 'first' | 'last',
+        target: positionMatch[3].trim().replace(/button$/, '').trim()
+      };
+    }
+
+    // Pattern 3: Position-based - "Click the top Submit button", "Click the bottom Save button"
+    const topBottomMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(?:the\s+)?(top|bottom)\s+(.+?)(?:\s+button)?$/i);
+    if (topBottomMatch) {
+      return {
+        type: 'position',
+        position: topBottomMatch[2].toLowerCase() as 'top' | 'bottom',
+        target: topBottomMatch[3].trim().replace(/button$/, '').trim()
+      };
+    }
+
+    // Pattern 4: Context-based - "Click Submit in the login form", "Click Save in the header"
+    const contextMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(.+?)\s+in\s+(.+)$/i);
+    if (contextMatch) {
+      return {
+        type: 'context',
+        target: contextMatch[2].trim().replace(/button$/, '').trim(),
+        context: contextMatch[3].trim()
+      };
+    }
+
+    // Pattern 5: Attribute-based - "Click Submit button with id 'primary-submit'", "Click Save button with class 'btn-primary'"
+    const attrMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(.+?)\s+button\s+with\s+(id|class|name|data-testid|data-test|data-qa)\s+['"](.+)['"]$/i);
+    if (attrMatch) {
+      return {
+        type: 'attribute',
+        target: attrMatch[2].trim().replace(/button$/, '').trim(),
+        attribute: attrMatch[3].toLowerCase(),
+        value: attrMatch[4].trim()
+      };
+    }
+
+    // Pattern 6: Nth-based - "Click the nth Submit button" (where n is number)
+    const nthMatch = normalized.match(/^(?:click|tap|press|select|choose)(?:\s+(?:on|the))?\s+(?:the\s+)?nth\s+(\d+)(?:st|nd|rd|th)?\s+(.+?)(?:\s+button)?$/i);
+    if (nthMatch) {
+      return {
+        type: 'index',
+        index: parseInt(nthMatch[2]) - 1,
+        target: nthMatch[3].trim().replace(/button$/, '').trim()
+      };
+    }
+
+    return null;
+  }
+
   private parseUrlCheck(step: string) {
     const match = step.trim().replace(/\s+/g, ' ').match(/^(?:check|verify|assert)(?:\s+(?:current|page))?\s+url(?:\s+(?:is|equals|contains))?\s+(.+)$/i);
     if (!match) return null;
@@ -705,6 +1281,54 @@ export class ActionsRunner {
     const match = step.trim().replace(/\s+/g, ' ').match(/^scroll(?:\s+(?:to|down\s+to|into\s+view))?\s+(.+)$/i);
     if (!match) return null;
     return this.stripWrappingQuotes(match[1].trim()) || null;
+  }
+
+  private parseUploadInstruction(step: string) {
+    // Patterns like:
+    // "Upload [file path] to [selector]"
+    // "Upload image [file path]"
+    // "Select file [file path]"
+    // "Choose file [file path] for [selector]"
+    // "Upload [file path] with description [description]"
+    
+    const uploadPatterns = [
+      /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+?)\s+(?:to|for|in|at)\s+(.+)$/i,
+      /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+?)\s+with\s+description\s+(.+)$/i,
+      /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+)$/i
+    ];
+
+    for (const pattern of uploadPatterns) {
+      const match = step.trim().replace(/\s+/g, ' ').match(pattern);
+      if (match) {
+        const filePath = this.stripWrappingQuotes(match[1].trim());
+        const selectorOrDesc = match[2] ? this.stripWrappingQuotes(match[2].trim()) : null;
+        
+        // Check if the second match is a selector or description
+        if (selectorOrDesc) {
+          if (selectorOrDesc.toLowerCase().startsWith('description') || selectorOrDesc.toLowerCase().includes('desc')) {
+            return {
+              selector: 'input[type="file"]',
+              filePath,
+              description: selectorOrDesc.replace(/^(description|desc)[:\s]+/i, '').trim()
+            };
+          } else {
+            return {
+              selector: selectorOrDesc,
+              filePath,
+              description: null
+            };
+          }
+        }
+        
+        return {
+          selector: 'input[type="file"]',
+          filePath,
+          description: null
+        };
+      }
+    }
+
+    return null;
   }
 
   private isCloseModalInstruction(step: string) {

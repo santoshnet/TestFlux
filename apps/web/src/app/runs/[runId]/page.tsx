@@ -8,7 +8,8 @@ import {
   FaGlobe, 
   FaClock, 
   FaHourglassHalf,
-  FaCalendar
+  FaCalendar,
+  FaDownload
 } from 'react-icons/fa';
 
 interface Bug {
@@ -20,6 +21,16 @@ interface Bug {
   status: string;
 }
 
+interface SEOIssue {
+  id: string;
+  title: string;
+  severity: string;
+  category: string;
+  description: string;
+  pageUrl: string;
+  status: string;
+}
+
 interface Run {
   id: string;
   projectId: string;
@@ -27,6 +38,7 @@ interface Run {
   browser?: string;
   pagesVisited: number;
   bugsFound: number;
+  seoIssuesFound: number;
   pagesDiscovered: string; // JSON string
   userSteps?: string; // JSON string
   generatedTestCode?: string;
@@ -42,6 +54,7 @@ export default function RunDetailsPage({ params }: { params: { runId: string } }
 
   const [run, setRun] = useState<Run | null>(null);
   const [bugs, setBugs] = useState<Bug[]>([]);
+  const [seoIssues, setSeoIssues] = useState<SEOIssue[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [selectedScreenshot, setSelectedScreenshot] = useState<string | null>(null);
@@ -58,6 +71,12 @@ export default function RunDetailsPage({ params }: { params: { runId: string } }
       if (bugsRes.ok) {
         const bugsData = await bugsRes.json();
         setBugs(bugsData);
+      }
+
+      const seoRes = await fetch(`/api/runs/${runId}/seo`);
+      if (seoRes.ok) {
+        const seoData = await seoRes.json();
+        setSeoIssues(seoData);
       }
     } catch (err) {
       console.error('Error fetching run details:', err);
@@ -82,6 +101,49 @@ export default function RunDetailsPage({ params }: { params: { runId: string } }
     navigator.clipboard.writeText(run.generatedTestCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    if (!run) return;
+
+    const discoveredPages = run.pagesDiscovered ? JSON.parse(run.pagesDiscovered) : [];
+    const artifactsObj = run.artifacts ? JSON.parse(run.artifacts) : {};
+    const stepResults = artifactsObj.stepResults || [];
+    const intendedSteps = run.userSteps ? JSON.parse(run.userSteps) : [];
+
+    const exportData = {
+      run: {
+        id: run.id,
+        projectId: run.projectId,
+        status: run.status,
+        browser: run.browser,
+        pagesVisited: run.pagesVisited,
+        bugsFound: run.bugsFound,
+        seoIssuesFound: run.seoIssuesFound,
+        pagesDiscovered: discoveredPages,
+        userSteps: intendedSteps,
+        generatedTestCode: run.generatedTestCode,
+        errorMessage: run.errorMessage,
+        artifacts: artifactsObj,
+        createdAt: run.createdAt,
+        startedAt: run.startedAt,
+        completedAt: run.completedAt,
+      },
+      bugs: bugs,
+      seoIssues: seoIssues,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `run-session-${run.id}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) return (
@@ -126,16 +188,21 @@ export default function RunDetailsPage({ params }: { params: { runId: string } }
             ID: {run.id} • Started {new Date(run.createdAt).toLocaleString()}
           </p>
         </div>
-        
-        {run.generatedTestCode && (
-          <button className="btn btn-primary" onClick={handleCopyCode} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {copied ? <><FaCheck size={16} /> Copied!</> : <><FaCopy size={16} /> Copy Playwright Script</>}
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn btn-primary" onClick={handleDownload} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <FaDownload size={16} /> Download Session
           </button>
-        )}
+          {run.generatedTestCode && (
+            <button className="btn btn-primary" onClick={handleCopyCode} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {copied ? <><FaCheck size={16} /> Copied!</> : <><FaCopy size={16} /> Copy Script</>}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats Summary Cards */}
-      <div className="grid-3" style={{ marginBottom: '32px' }}>
+      <div className="grid-3" style={{ marginBottom: '32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <div className="card">
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Pages Visited</p>
           <h2 style={{ fontSize: '1.8rem', color: 'var(--accent-teal)' }}>{run.pagesVisited}</h2>
@@ -144,6 +211,11 @@ export default function RunDetailsPage({ params }: { params: { runId: string } }
         <div className="card">
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Bugs Identified</p>
           <h2 style={{ fontSize: '1.8rem', color: run.bugsFound > 0 ? 'var(--color-danger)' : 'var(--color-success)' }}>{run.bugsFound}</h2>
+        </div>
+
+        <div className="card">
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>SEO Issues</p>
+          <h2 style={{ fontSize: '1.8rem', color: run.seoIssuesFound > 0 ? '#f59e0b' : 'var(--color-success)' }}>{run.seoIssuesFound || 0}</h2>
         </div>
 
         <div className="card">
@@ -203,6 +275,68 @@ export default function RunDetailsPage({ params }: { params: { runId: string } }
                         Inspect
                       </button>
                     </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SEO Issues Card */}
+          <div className="card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.2rem', margin: 0 }}>SEO Issues ({seoIssues.length})</h3>
+              {seoIssues.length > 0 && (
+                <button 
+                  className="btn btn-secondary btn-sm" 
+                  onClick={() => {
+                    const seoData = JSON.stringify(seoIssues, null, 2);
+                    const blob = new Blob([seoData], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `seo-issues-${runId}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                >
+                  <FaDownload size={12} style={{ marginRight: '4px' }} />
+                  Download
+                </button>
+              )}
+            </div>
+
+            {seoIssues.length === 0 ? (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--color-success)', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <FaCheck size={20} />
+                Great SEO! No critical SEO issues detected.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {seoIssues.map((issue) => (
+                  <div key={issue.id} className="step-item" style={{ margin: '0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                        <span className={`badge ${
+                          issue.severity === 'critical' ? 'badge-danger' : 
+                          issue.severity === 'high' ? 'badge-danger' : 
+                          issue.severity === 'medium' ? 'badge-warning' : 
+                          'badge-muted'
+                        }`} style={{ fontSize: '0.6rem' }}>
+                          {issue.severity}
+                        </span>
+                        <span className="badge badge-info" style={{ fontSize: '0.6rem' }}>{issue.category}</span>
+                      </div>
+                      <h4 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{issue.title}</h4>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', marginBottom: '4px' }}>
+                        {issue.description}
+                      </p>
+                      <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
+                        {issue.pageUrl}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
