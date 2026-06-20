@@ -7,6 +7,7 @@ import { Run } from './runs/run.entity';
 import { Bug } from './bugs/bug.entity';
 import { AgentTask } from './agents/agent-task.entity';
 import { GitHubConnection } from './github-auth/github-connection.entity';
+import { GitHubRepository } from './github-repositories/github-repository.entity';
 import { SEOIssue as SEOEntity } from './seo/seo.entity';
 
 import { ProjectsModule } from './projects/projects.module';
@@ -14,8 +15,11 @@ import { RunsModule } from './runs/runs.module';
 import { BugsModule } from './bugs/bugs.module';
 import { AgentsModule } from './agents/agents.module';
 import { GitHubAuthModule } from './github-auth/github-auth.module';
+import { GitHubRepositoriesModule } from './github-repositories/github-repositories.module';
 import { StorageModule } from './storage/storage.module';
 import { SEOModule } from './seo/seo.module';
+import { UnitTestGenerationModule } from './unit-test-generation/unit-test-generation.module';
+import { SecurityScanningModule } from './security-scanning/security-scanning.module';
 
 @Module({
   imports: [
@@ -37,7 +41,7 @@ import { SEOModule } from './seo/seo.module';
         return {
           type: 'sqlite',
           database: dbPath,
-          entities: [Project, Run, Bug, AgentTask, GitHubConnection, SEOEntity],
+          entities: [Project, Run, Bug, AgentTask, GitHubConnection, GitHubRepository, SEOEntity],
           synchronize: true, // Auto-create tables for local development
           logging: false,
         };
@@ -48,8 +52,11 @@ import { SEOModule } from './seo/seo.module';
     BugsModule,
     AgentsModule,
     GitHubAuthModule,
+    GitHubRepositoriesModule,
     StorageModule,
     SEOModule,
+    UnitTestGenerationModule,
+    SecurityScanningModule,
   ],
 })
 export class AppModule {}

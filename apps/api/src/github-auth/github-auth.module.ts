@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { GitHubConnection } from './github-connection.entity';
 import { GitHubAuthController } from './github-auth.controller';
+import { GitHubAuthService } from './github-auth.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GitHubConnection])],
+  imports: [TypeOrmModule.forFeature([GitHubConnection]), ConfigModule],
   controllers: [GitHubAuthController],
-  exports: [TypeOrmModule],
+  providers: [GitHubAuthService],
+  exports: [TypeOrmModule, GitHubAuthService],
 })
 export class GitHubAuthModule {}

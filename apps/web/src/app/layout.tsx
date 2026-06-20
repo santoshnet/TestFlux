@@ -10,7 +10,8 @@ import {
   FaRobot, 
   FaPlug, 
   FaTimes,
-  FaHeartbeat
+  FaHeartbeat,
+  FaGithub
 } from 'react-icons/fa';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -135,6 +136,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   AI Code Agents
                 </div>
               </Link>
+
+              <Link href="/repositories">
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: pathname.startsWith('/repositories') ? 'rgba(0, 242, 254, 0.08)' : 'transparent',
+                  color: pathname.startsWith('/repositories') ? 'var(--accent-teal)' : 'var(--text-secondary)',
+                  borderLeft: pathname.startsWith('/repositories') ? '3px solid var(--accent-teal)' : '3px solid transparent',
+                  fontWeight: pathname.startsWith('/repositories') ? '600' : '400',
+                  cursor: 'pointer',
+                  transition: 'var(--transition-smooth)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <FaGithub size={18} />
+                  GitHub Repositories
+                </div>
+              </Link>
             </nav>
 
             {/* GitHub Integration Panel in Sidebar Footer */}
@@ -192,7 +212,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <header className="header">
               <div>
                 <h3 style={{ fontSize: '1.1rem' }}>
-                  {pathname === '/' ? 'System Overview' : pathname.startsWith('/projects') ? 'Project Directory' : 'Autonomous AI Agents'}
+                  {pathname === '/' ? 'System Overview' : 
+                   pathname.startsWith('/projects') ? 'Project Directory' : 
+                   pathname.startsWith('/repositories') ? 'GitHub Repository Browser' : 
+                   'Autonomous AI Agents'}
                 </h3>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
