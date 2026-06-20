@@ -34,6 +34,14 @@ export class ActionsRunner {
         return await this.executeConditional(conditional, safeStep);
       }
 
+      // 0.5. Upload file instruction (priority over field instruction)
+      const uploadInstruction = this.parseUploadInstruction(step);
+      if (uploadInstruction) {
+        const result = await this.uploadFile(uploadInstruction.selector, uploadInstruction.filePath, uploadInstruction.description);
+        await this.sleep(800);
+        return result;
+      }
+
       // 1. Fill Input Field
       const fieldInstruction = this.parseFieldInstruction(step);
       if (fieldInstruction) {
@@ -196,17 +204,6 @@ export class ActionsRunner {
       }
 
       // 15. End / Stop / Finish - terminate test execution
-      if (/^(end|stop|finish|terminate|close\s+browser|exit)$/i.test(normalized.trim())) {
-        return { type: 'end', stepText: safeStep, status: 'passed', detail: 'Test execution terminated' };
-      }
-
-      // 16. Upload file with optional description
-      const uploadInstruction = this.parseUploadInstruction(step);
-      if (uploadInstruction) {
-        const result = await this.uploadFile(uploadInstruction.selector, uploadInstruction.filePath, uploadInstruction.description);
-        await this.sleep(800);
-        return result;
-      }
 
       return {
         type: 'wait',
@@ -1285,16 +1282,18 @@ export class ActionsRunner {
 
   private parseUploadInstruction(step: string) {
     // Patterns like:
+    // "Upload [file path]" (simple)
     // "Upload [file path] to [selector]"
     // "Upload image [file path]"
     // "Select file [file path]"
     // "Choose file [file path] for [selector]"
     // "Upload [file path] with description [description]"
     
+    // Order matters - more specific patterns first
     const uploadPatterns = [
       /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+?)\s+(?:to|for|in|at)\s+(.+)$/i,
       /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+?)\s+with\s+description\s+(.+)$/i,
-      /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+)$/i
+      /^(?:upload|select|choose)\s+(?:file|image|document)?\s*(.+)$/i  // Simple upload
     ];
 
     for (const pattern of uploadPatterns) {
@@ -1320,6 +1319,7 @@ export class ActionsRunner {
           }
         }
         
+        // Simple upload without selector or description
         return {
           selector: 'input[type="file"]',
           filePath,
