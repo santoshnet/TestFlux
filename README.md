@@ -771,6 +771,19 @@ pnpm dev
 # Local artifacts will be in the uploads/ directory
 ```
 
+#Screen shots
+<img width="1896" height="1439" alt="localhost_3000_" src="https://github.com/user-attachments/assets/1ceab4ac-8c07-4cd4-b127-3dad153fa566" />
+<img width="1896" height="926" alt="localhost_3000_ (1)" src="https://github.com/user-attachments/assets/f575ec54-bfec-4104-9066-3e5a1e330c45" />
+<img width="1896" height="2210" alt="localhost_3000_ (2)" src="https://github.com/user-attachments/assets/74c996e9-70a3-40d1-97dd-3ca6490a7cc3" />
+<img width="1896" height="4193" alt="localhost_3000_ (3)" src="https://github.com/user-attachments/assets/613bb60e-df8e-4150-8dcb-020c3077b990" />
+<img width="1896" height="4561" alt="localhost_3000_ (4)" src="https://github.com/user-attachments/assets/4a6b3cba-df05-4b82-85bf-41be5bb40e29" />
+<img width="1896" height="3040" alt="localhost_3000_ (5)" src="https://github.com/user-attachments/assets/8b1d55eb-e7b6-418f-90a7-304919caa99a" />
+<img width="1896" height="6436" alt="localhost_3000_ (6)" src="https://github.com/user-attachments/assets/59ae3744-31f1-41ba-a178-91d311c9f0d7" />
+
+<img width="1896" height="1360" alt="localhost_3000_bugs_dd86bca5-2753-4092-bcea-070b2fdc66ff" src="https://github.com/user-attachments/assets/f30100e7-7066-43cd-9a71-2aa381636b16" />
+
+
+
 ## License
 
 Private workspace
