@@ -1053,7 +1053,7 @@ export default function RepositoryDetailPage({ params }: { params: { id: string 
                     borderRadius: 'var(--radius-sm)',
                     padding: '8px'
                   }}>
-                    {Object.entries(securityScanResult.categories).map(([category, count]: [string, number]) => (
+                    {Object.entries(securityScanResult.categories).map(([category, count]: [string, unknown]) => (
                       <div key={category} style={{ 
                         padding: '6px', 
                         borderBottom: '1px solid var(--border-color)',
@@ -1062,7 +1062,7 @@ export default function RepositoryDetailPage({ params }: { params: { id: string 
                         justifyContent: 'space-between',
                       }}>
                         <span>{category}</span>
-                        <span style={{ fontWeight: 'bold' }}>{count}</span>
+                        <span style={{ fontWeight: 'bold' }}>{String(count)}</span>
                       </div>
                     ))}
                   </div>

@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { FaRobot, FaCheckCircle, FaClock, FaPaperPlane } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
 
 interface Task {
   id: string;
@@ -132,10 +135,71 @@ export default function AgentsPage() {
                   color: msg.role === 'error' ? '#f87171' : 'var(--text-primary)',
                   fontSize: '0.9rem',
                   lineHeight: 1.5,
-                  whiteSpace: 'pre-wrap',
                 }}
               >
-                {msg.content}
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeHighlight]}
+                  components={{
+                    // Style code blocks
+                    code: ({ node, className, children, ...props }: any) => {
+                      const match = /language-(\w+)/.exec(className || '');
+                      const isInline = !match && !className;
+                      return isInline ? (
+                        <code
+                          style={{
+                            backgroundColor: 'rgba(0, 242, 254, 0.1)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            fontFamily: 'monospace',
+                            fontSize: '0.85em',
+                          }}
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      ) : (
+                        <code
+                          style={{
+                            display: 'block',
+                            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                            padding: '12px',
+                            borderRadius: '6px',
+                            fontFamily: 'monospace',
+                            fontSize: '0.85em',
+                            overflowX: 'auto',
+                            border: '1px solid var(--border-color)',
+                          }}
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    },
+                    // Style inline code
+                    p: ({ children }) => <p style={{ margin: '0 0 8px 0' }}>{children}</p>,
+                    // Style lists
+                    ul: ({ children }) => <ul style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ul>,
+                    ol: ({ children }) => <ol style={{ margin: '0 0 8px 0', paddingLeft: '20px' }}>{children}</ol>,
+                    // Style headings
+                    h1: ({ children }) => <h1 style={{ fontSize: '1.2em', fontWeight: 'bold', margin: '16px 0 8px 0' }}>{children}</h1>,
+                    h2: ({ children }) => <h2 style={{ fontSize: '1.1em', fontWeight: 'bold', margin: '14px 0 8px 0' }}>{children}</h2>,
+                    h3: ({ children }) => <h3 style={{ fontSize: '1em', fontWeight: 'bold', margin: '12px 0 8px 0' }}>{children}</h3>,
+                    // Style links
+                    a: ({ children, href }) => (
+                      <a
+                        href={href}
+                        style={{ color: 'var(--accent-teal)', textDecoration: 'underline' }}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {children}
+                      </a>
+                    ),
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
               </div>
             ))}
             {sending && (

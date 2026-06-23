@@ -1,4 +1,4 @@
-export interface PageSnapshot {
+  export interface PageSnapshot {
   url: string;
   domSnapshot: string;
   screenshotBuffer?: Buffer;

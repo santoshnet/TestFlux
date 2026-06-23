@@ -8,25 +8,27 @@
  ✓ Compiled successfully
    Linting and checking validity of types ...
    Collecting page data ...
-   Generating static pages (0/6) ...
-   Generating static pages (1/6) 
-   Generating static pages (2/6) 
-   Generating static pages (4/6) 
- ✓ Generating static pages (6/6)
+   Generating static pages (0/7) ...
+   Generating static pages (1/7) 
+   Generating static pages (3/7) 
+   Generating static pages (5/7) 
+ ✓ Generating static pages (7/7)
    Finalizing page optimization ...
    Collecting build traces ...
 
 Route (app)                              Size     First Load JS
-┌ ○ /                                    3.25 kB         104 kB
+┌ ○ /                                    3.25 kB         106 kB
 ├ ○ /_not-found                          872 B          88.1 kB
-├ ○ /agents                              3.39 kB        95.7 kB
+├ ○ /agents                              95 kB           189 kB
 ├ ƒ /bugs/[bugId]                        2.09 kB        98.1 kB
-├ ○ /projects                            3.54 kB         105 kB
-├ ƒ /projects/[id]                       5.96 kB         107 kB
-└ ƒ /runs/[runId]                        4.5 kB          105 kB
+├ ○ /projects                            3.54 kB         107 kB
+├ ƒ /projects/[id]                       5.96 kB         109 kB
+├ ○ /repositories                        2.9 kB          106 kB
+├ ƒ /repositories/[id]                   7.49 kB         111 kB
+└ ƒ /runs/[runId]                        4.5 kB          108 kB
 + First Load JS shared by all            87.3 kB
-  ├ chunks/5b8f0dd8-16e51007fc3e8001.js  53.6 kB
-  ├ chunks/749-541f6091f83e15d2.js       31.7 kB
+  ├ chunks/5b8f0dd8-98db7f2a8735caf3.js  53.6 kB
+  ├ chunks/749-c1448209c4f951dd.js       31.7 kB
   └ other shared chunks (total)          1.9 kB
 
 

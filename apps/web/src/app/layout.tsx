@@ -1,14 +1,15 @@
 'use client';
 
 import './globals.css';
+import 'highlight.js/styles/github-dark.css';
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  FaChartBar, 
-  FaFolder, 
-  FaRobot, 
-  FaPlug, 
+import {
+  FaChartBar,
+  FaFolder,
+  FaRobot,
+  FaPlug,
   FaTimes,
   FaHeartbeat,
   FaGithub
